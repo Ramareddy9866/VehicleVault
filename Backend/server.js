@@ -10,45 +10,48 @@ import cors from 'cors';
 dotenv.config();
 
 const app = express();
-app.use(express.json());
+const PORT = process.env.PORT || 5000;
+
+const allowedOrigin = 'https://vehicle-vault-rho.vercel.app';
 
 app.use(cors({
-  origin: 'https://vehicle-vault-rho.vercel.app',
+  origin: allowedOrigin,
   credentials: true,
 }));
 
+app.options('*', cors({
+  origin: allowedOrigin,
+  credentials: true,
+}));
+
+// Middleware
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const PORT = process.env.PORT || 5000;
-
-// Add auth routes
+// Routes
 app.use('/api/auth', authRoutes);
-
-// Add vehicle routes
 app.use('/api/vehicles', vehicleRoutes);
-
-// Add service routes
 app.use('/api/services', serviceRoutes);
-
-// Add reminder routes
 app.use('/api/reminders', reminderRoutes);
 
+// MongoDB Connection
 if (!process.env.MONGODB_URL) {
-    console.error('Error: MONGODB_URL is not defined in .env file');
-    process.exit(1);
+  console.error('Error: MONGODB_URL is not defined in .env file');
+  process.exit(1);
 }
 
 const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.MONGODB_URL);
-        console.log('MongoDB connected');
-    } catch(err) {
-        console.error('MongoDB connection failed', err.message);
-        process.exit(1);
-    }
+  try {
+    await mongoose.connect(process.env.MONGODB_URL);
+    console.log('MongoDB connected');
+  } catch (err) {
+    console.error('MongoDB connection failed', err.message);
+    process.exit(1);
+  }
 };
 
+// Start server
 app.listen(PORT, async () => {
-    await connectDB();
-    console.log(`Server is running on port ${PORT}`);
-})
+  await connectDB();
+  console.log(`Server is running on port ${PORT}`);
+});
