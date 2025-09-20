@@ -263,9 +263,6 @@ const ServiceHistory = () => {
                 {service.nextServiceDate ? (
                   <Typography variant="body2">
                     {formatDateDDMMYY(service.nextServiceDate)}
-                    {typeof service.nextServiceMileage === 'number' &&
-                      !isNaN(service.nextServiceMileage) &&
-                      ` at ${service.nextServiceMileage.toLocaleString()} miles`}
                   </Typography>
                 ) : (
                   <Typography variant="body2" color="text.secondary">

@@ -53,7 +53,6 @@ const AddService = () => {
     cost: '',
     mileage: '',
     nextServiceDate: null,
-    nextServiceMileage: '',
     serviceCenter: {
       name: '',
       address: ''
@@ -318,9 +317,6 @@ const AddService = () => {
         description: formData.description,
         mileage: parseInt(formData.mileage),
         nextServiceDate: formData.nextServiceDate,
-        nextServiceMileage: formData.nextServiceMileage
-          ? parseInt(formData.nextServiceMileage)
-          : null,
         serviceCenter: formData.serviceCenter
       };
       await axios.post(

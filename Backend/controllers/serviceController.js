@@ -3,7 +3,7 @@ import Vehicle from '../models/vehicle.js';
 
 // Add a new service for a vehicle
 export const addService = async (req, res) => {
-    const { serviceType, serviceDate, cost, description, mileage, nextServiceDate, nextServiceMileage, serviceCenter } = req.body;
+    const { serviceType, serviceDate, cost, description, mileage, nextServiceDate, serviceCenter } = req.body;
     const { vehicleId } = req.params;
     if (!serviceType || !serviceDate) {
         return res.status(400).json({ message: 'Service type and service date are required.' });
@@ -21,13 +21,8 @@ export const addService = async (req, res) => {
             description,
             mileage,
             nextServiceDate,
-            nextServiceMileage,
             serviceCenter
         });
-        await Vehicle.findByIdAndUpdate(vehicleId, { lastServiceDate: serviceDate });
-        if (nextServiceDate) {
-            await Vehicle.findByIdAndUpdate(vehicleId, { nextServiceDate });
-        }
         if (serviceCenter && serviceCenter.name) {
             const vehicleToUpdate = await Vehicle.findById(vehicleId);
             let history = vehicleToUpdate.serviceCenterHistory || [];

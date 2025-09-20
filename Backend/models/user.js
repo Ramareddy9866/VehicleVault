@@ -22,11 +22,6 @@ const userSchema = new mongoose.Schema({
             ref: 'Vehicle'
         }
     ],
-    preferredServiceCenter: {
-        name: String,
-        address: String,
-        placeId: String
-    },
     passwordResetToken: String,
     passwordResetExpires: Date
 }, {

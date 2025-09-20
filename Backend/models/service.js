@@ -24,9 +24,6 @@ const serviceSchema = new mongoose.Schema({
     nextServiceDate: {
         type: Date
     },
-    nextServiceMileage: {
-        type: Number
-    },
     serviceType: {
         type: String,
         enum: [

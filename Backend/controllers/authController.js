@@ -89,7 +89,6 @@ export const getCurrentUser = async (req, res) => {
             _id: user._id,
             name: user.name,
             email: user.email,
-            preferredServiceCenter: user.preferredServiceCenter,
         };
         res.json(userData);
     } catch (error) {
@@ -98,34 +97,6 @@ export const getCurrentUser = async (req, res) => {
     }
 };
 
-// Set preferred service center
-export const setPreferredCenter = async (req, res) => {
-    try {
-        const { name, address, placeId } = req.body;
-        if (
-            typeof name !== 'string' ||
-            typeof address !== 'string' ||
-            typeof placeId !== 'string' ||
-            !name.trim() ||
-            !address.trim() ||
-            !placeId.trim()
-        ) {
-            return res.status(400).json({ message: 'All fields must be valid strings' });
-        }
-        const user = await User.findById(req.user._id);
-        if (!user) {
-            return res.status(404).json({ message: 'User not found' });
-        }
-        user.preferredServiceCenter = { name, address, placeId };
-        await user.save();
-        res.json({
-            message: 'Preferred service center updated successfully',
-            preferredServiceCenter: user.preferredServiceCenter
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Server error' });
-    }
-};
 
 // Forgot password (send reset email)
 export const forgotPassword = async (req, res) => {

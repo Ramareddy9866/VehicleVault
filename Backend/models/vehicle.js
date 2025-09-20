@@ -18,12 +18,6 @@ const vehicleSchema = new mongoose.Schema({
     modelYear: {
         type: Number
     },
-    nextServiceDate: {
-        type: Date
-    },
-    lastReminderSent: {
-        type: Date
-    },
     lastReminderSentDate: {
         type: Date
     },
