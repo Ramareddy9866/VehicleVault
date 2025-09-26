@@ -110,7 +110,7 @@ const Login = () => {
                 mb: 0.5,
               }}
             >
-              Email: admin@example.com
+              Email: ram@gmail.com
             </Typography>
             <Typography
               variant="body2"
@@ -119,7 +119,7 @@ const Login = () => {
                 fontSize: { xs: "0.75rem", sm: "0.875rem" },
               }}
             >
-              Password: admin@123
+              Password: qwe@12345
             </Typography>
           </Paper>
         </Box>
