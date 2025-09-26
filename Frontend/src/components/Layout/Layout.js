@@ -1,6 +1,4 @@
-// Main layout for the app.
-import React from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom'
 import {
   AppBar,
   Box,
@@ -9,157 +7,233 @@ import {
   Button,
   Container,
   IconButton,
-} from '@mui/material';
-import AccountCircle from '@mui/icons-material/AccountCircle';
-import { useAuth } from '../../context/AuthContext';
-import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
-import MapIcon from '@mui/icons-material/Map';
-import LogoutIcon from '@mui/icons-material/Logout';
-import BottomNavigation from '@mui/material/BottomNavigation';
-import BottomNavigationAction from '@mui/material/BottomNavigationAction';
-import Tooltip from '@mui/material/Tooltip';
-import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled';
+  Tooltip,
+} from '@mui/material'
+import AccountCircle from '@mui/icons-material/AccountCircle'
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar'
+import MapIcon from '@mui/icons-material/Map'
+import LogoutIcon from '@mui/icons-material/Logout'
+import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled'
+import { useAuth } from '../../context/AuthContext'
 
 const Layout = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [anchorEl, setAnchorEl] = React.useState(null);
-
-  const handleMenu = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
+  // Authentication state and navigation
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   const handleLogout = () => {
-    handleClose();
-    logout();
-    navigate('/login');
-  };
-
-  const navItems = [
-    { label: 'Vehicles', icon: <DirectionsCarIcon />, path: '/vehicles' },
-    { label: 'Nearby', icon: <MapIcon />, path: '/nearby-centers' },
-    { label: 'Logout', icon: <LogoutIcon />, action: handleLogout },
-  ];
+    logout()
+    navigate('/login')
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* navigation header */}
       <AppBar position="sticky" sx={{ zIndex: 1201 }}>
-        <Toolbar sx={{ minHeight: 56 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, cursor: 'pointer', fontWeight: 700, ml: 4 }} onClick={() => navigate('/') }>
-            <DirectionsCarFilledIcon sx={{ fontSize: 32, color: 'primary.contrastText', mr: 1 }} />
-            <Typography variant="h5" component="div" sx={{ fontWeight: 700 }}>
+        <Toolbar
+          sx={{
+            minHeight: { xs: 56, sm: 64 },
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            px: { xs: 2, sm: 3 },
+            py: { xs: 1, sm: 0 },
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              fontWeight: 700,
+              flexGrow: user ? 0 : 1,
+              justifyContent: user ? 'flex-start' : 'center',
+              mb: { xs: user ? 1.5 : 0, sm: 0 },
+            }}
+          >
+            <DirectionsCarFilledIcon
+              sx={{ fontSize: { xs: 28, sm: 32 }, color: 'primary.contrastText', mr: 1.5 }}
+            />
+            <Typography
+              variant="h6"
+              component="div"
+              sx={{ fontWeight: 700, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+            >
               VehicleVault
             </Typography>
           </Box>
+
           {user && (
-            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', ml: 'auto', width: 'auto' }}>
-              <Button
-                startIcon={<DirectionsCarIcon />}
-                onClick={() => navigate('/vehicles')}
+            <>
+              <Box
                 sx={{
-                  color: 'text.primary',
-                  mx: 1,
-                  fontWeight: 600,
-                  '&:hover': { color: 'accent.main', bgcolor: 'primary.dark' },
+                  width: '100%',
+                  display: { xs: 'flex', sm: 'none' },
+                  alignItems: 'center',
+                  justifyContent: 'flex-end',
+                  gap: 1.5,
+                  mb: 1,
                 }}
               >
-                Vehicles
-              </Button>
-              <Button
-                startIcon={<MapIcon />}
-                onClick={() => navigate('/nearby-centers')}
+                <Tooltip title={user.email} arrow>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: 'text.primary',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: 1.5,
+                      '&:hover': { bgcolor: 'primary.dark' },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <AccountCircle sx={{ mr: 0.5, fontSize: 22 }} />
+                    <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{user.name}</Typography>
+                  </Box>
+                </Tooltip>
+                <Tooltip title="Logout" arrow>
+                  <IconButton
+                    onClick={handleLogout}
+                    sx={{
+                      color: 'text.primary',
+                      p: 0.5,
+                      '&:hover': { bgcolor: 'primary.dark' },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <LogoutIcon sx={{ fontSize: 22 }} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+
+              {/* Mobile nav buttons */}
+              <Box
                 sx={{
-                  color: 'text.primary',
-                  mx: 1,
-                  fontWeight: 600,
-                  '&:hover': { color: 'accent.main', bgcolor: 'primary.dark' },
+                  width: '100%',
+                  display: { xs: 'flex', sm: 'none' },
+                  justifyContent: 'center',
+                  gap: 4,
+                  minHeight: 44,
+                  alignItems: 'center',
                 }}
               >
-                Nearby
-              </Button>
-              <Box sx={{ width: 32 }} />
-              <Tooltip title={user.email} arrow>
-                <Box sx={{ display: 'flex', alignItems: 'center', color: 'text.primary', fontWeight: 600, mx: 1, ml: 5, cursor: 'pointer' }}>
-                  <AccountCircle sx={{ mr: 1 }} />
-                  <Typography>
-                    {user.name}
-                  </Typography>
-                </Box>
-              </Tooltip>
-              <Tooltip title="Logout" arrow>
-                <IconButton
-                  onClick={handleLogout}
+                <Button
+                  startIcon={<DirectionsCarIcon />}
+                  onClick={() => navigate('/vehicles')}
                   sx={{
                     color: 'text.primary',
-                    ml: 1,
-                    mr: 0.5,
+                    fontWeight: 600,
+                    fontSize: 14,
+                    minWidth: 120,
+                    borderRadius: 2,
                   }}
                 >
-                  <LogoutIcon />
-                </IconButton>
-              </Tooltip>
-            </Box>
+                  Vehicles
+                </Button>
+                <Button
+                  startIcon={<MapIcon />}
+                  onClick={() => navigate('/nearby-centers')}
+                  sx={{
+                    color: 'text.primary',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    minWidth: 120,
+                    borderRadius: 2,
+                  }}
+                >
+                  Nearby
+                </Button>
+              </Box>
+              {/* Desktop navbar */}
+              <Box
+                sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', width: '100%' }}
+              >
+                <Box sx={{ flexGrow: 1 }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <Button
+                    startIcon={<DirectionsCarIcon />}
+                    onClick={() => navigate('/vehicles')}
+                    sx={{
+                      color: 'text.primary',
+                      fontWeight: 600,
+                      fontSize: 16,
+                      minWidth: 130,
+                      '&:hover': { color: 'accent.main', bgcolor: 'primary.dark' },
+                    }}
+                  >
+                    Vehicles
+                  </Button>
+                  <Button
+                    startIcon={<MapIcon />}
+                    onClick={() => navigate('/nearby-centers')}
+                    sx={{
+                      color: 'text.primary',
+                      fontWeight: 600,
+                      fontSize: 16,
+                      minWidth: 130,
+                      '&:hover': { color: 'accent.main', bgcolor: 'primary.dark' },
+                    }}
+                  >
+                    Nearby
+                  </Button>
+                  <Tooltip title={user.email} arrow>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        px: 2,
+                        py: 1,
+                        borderRadius: 1.5,
+                        '&:hover': { bgcolor: 'primary.dark' },
+                      }}
+                    >
+                      <AccountCircle sx={{ mr: 1, fontSize: 28 }} />
+                      <Typography sx={{ fontSize: 16 }}>{user.name}</Typography>
+                    </Box>
+                  </Tooltip>
+                  <Tooltip title="Logout" arrow>
+                    <IconButton onClick={handleLogout} sx={{ color: 'text.primary' }}>
+                      <LogoutIcon sx={{ fontSize: 28 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Box>
+            </>
           )}
         </Toolbar>
-        {user && (
-          <Box sx={{ display: { xs: 'flex', md: 'none' }, width: '100%' }}>
-            <BottomNavigation
-              showLabels
-              sx={{ width: '100%', bgcolor: 'primary.main', position: 'sticky', bottom: 0 }}
-            >
-              <BottomNavigationAction
-                label="Vehicles"
-                icon={<DirectionsCarIcon />}
-                onClick={() => navigate('/vehicles')}
-                sx={{ color: 'text.primary', '&.Mui-selected': { color: 'accent.main' } }}
-              />
-              <BottomNavigationAction
-                label="Nearby"
-                icon={<MapIcon />}
-                onClick={() => navigate('/nearby-centers')}
-                sx={{ color: 'text.primary', '&.Mui-selected': { color: 'accent.main' } }}
-              />
-              <BottomNavigationAction
-                label={user.name}
-                icon={<Tooltip title={user.email} arrow><span><AccountCircle sx={{ color: 'text.primary' }} /></span></Tooltip>}
-                sx={{ color: 'text.primary' }}
-              />
-              <BottomNavigationAction
-                icon={<Tooltip title="Logout" arrow><LogoutIcon /></Tooltip>}
-                onClick={handleLogout}
-                sx={{ color: 'text.primary', '&:hover': { color: 'accent.main' } }}
-              />
-            </BottomNavigation>
-          </Box>
-        )}
       </AppBar>
-      <Container component="main" sx={{ mt: 4, mb: 4, flex: 1 }}>
+
+      <Container component="main" sx={{ mt: { xs: 2, sm: 4 }, mb: { xs: 2, sm: 4 }, flex: 1 }}>
         <Outlet />
       </Container>
+
+     {/* Footer */}
       <Box
         component="footer"
         sx={{
-          py: 3,
-          px: 2,
+          py: { xs: 2, sm: 3 },
+          px: { xs: 1, sm: 2 },
           mt: 'auto',
           backgroundColor: (theme) =>
-            theme.palette.mode === 'light'
-              ? theme.palette.grey[200]
-              : theme.palette.grey[800],
+            theme.palette.mode === 'light' ? theme.palette.grey[200] : theme.palette.grey[800],
         }}
       >
         <Container maxWidth="sm">
-          <Typography variant="body2" color="text.secondary" align="center">
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            align="center"
+            sx={{ fontSize: { xs: 11, sm: 14 } }}
+          >
             © {new Date().getFullYear()} VehicleVault. All rights reserved.
           </Typography>
         </Container>
       </Box>
     </Box>
-  );
-};
+  )
+}
 
-export default Layout;
+export default Layout

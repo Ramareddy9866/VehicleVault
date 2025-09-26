@@ -1,546 +1,382 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import {
-  Container,
-  Paper,
-  Typography,
-  Box,
-  Button,
-  CircularProgress,
-  Grid
-} from '@mui/material';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
-import { Favorite } from '@mui/icons-material';
-import { useSnackbar } from '../../context/SnackbarContext';
-import API_URL from '../../config';
-import AppAlert from '../common/AppAlert';
-import ServiceCenterList from './NearbyCenters/ServiceCenterList';
-import MapSection from './NearbyCenters/MapSection';
-import ManualLocationPicker from './ManualLocationPicker';
-import SelectField from '../common/SelectField';
+import { useEffect, useCallback, useState, useMemo } from 'react'
+import { Container, Paper, Typography, Box, Button, CircularProgress, Grid } from '@mui/material'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
+import axios from 'axios'
+import { useSnackbar } from '../../context/SnackbarContext'
+import API_URL from '../../config'
+import ServiceCenterList from './NearbyCenters/ServiceCenterList'
+import MapSection from './NearbyCenters/MapSection'
+import ManualLocationPicker from './ManualLocationPicker'
+import SelectField from '../common/SelectField'
 
 // Set default marker icon for the map
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+})
 
-// Most common OSM tags for car service centers
-const availableTags = [
-  'car_repair',
-  'car_parts',
-  'car_wash',
-  'tyres',
-  'vehicle_inspection',
-  'mechanic'
-];
+// OSM tags for car service centers
+const availableTags = ['car_repair','car_parts','car_wash','tyres','vehicle_inspection','mechanic']
 
-function buildOverpassQuery(_, __, center, radius = 1000, selectedServiceTag = 'All') {
-  const lat = center.lat;
-  const lon = center.lon;
-  let filters = [];
+// Builds an Overpass Query for nearby service centers
+function buildOverpassQuery(center, radius = 1000, selectedServiceTag = 'All') {
+  const { lat, lon } = center
+  const tags = selectedServiceTag !== 'All' ? [selectedServiceTag] : availableTags
 
-  if (selectedServiceTag && selectedServiceTag !== 'All') {
-    filters = [
-      `nwr["shop"="${selectedServiceTag}"](around:${radius},${lat},${lon});`,
-      `nwr["amenity"="${selectedServiceTag}"](around:${radius},${lat},${lon});`,
-      `nwr["craft"="${selectedServiceTag}"](around:${radius},${lat},${lon});`,
-      `nwr["office"="${selectedServiceTag}"](around:${radius},${lat},${lon});`
-    ];
-  } else {
-    filters = [
-      `nwr["shop"="car_repair"](around:${radius},${lat},${lon});`,
-      `nwr["shop"="car_parts"](around:${radius},${lat},${lon});`,
-      `nwr["shop"="car_wash"](around:${radius},${lat},${lon});`,
-      `nwr["shop"="tyres"](around:${radius},${lat},${lon});`,
-      `nwr["shop"="vehicle_inspection"](around:${radius},${lat},${lon});`,
-      `nwr["amenity"="car_repair"](around:${radius},${lat},${lon});`,
-      `nwr["craft"="mechanic"](around:${radius},${lat},${lon});`,
-      `nwr["office"="repair"](around:${radius},${lat},${lon});`
-    ];
-  }
+  const filters = tags.flatMap((tag) => [
+    `nwr["shop"="${tag}"](around:${radius},${lat},${lon});`,
+    `nwr["amenity"="${tag}"](around:${radius},${lat},${lon});`,
+    `nwr["craft"="${tag}"](around:${radius},${lat},${lon});`,
+    `nwr["office"="${tag}"](around:${radius},${lat},${lon});`,
+  ])
 
-  return `[out:json][timeout:25];\n(\n${filters.join('\n')}\n);\nout center;`;
+  return `[out:json][timeout:25];\n(\n${filters.join('\n')}\n);\nout center;`
 }
 
 const getNominatimUrl = (lat, lon) =>
-  `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+  `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
 
 const NearbyCenters = () => {
-  const [serviceCenters, setServiceCenters] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [preferredCenter, setPreferredCenter] = useState(null);
-  const [addressCache, setAddressCache] = useState({});
-  const [addressLoading, setAddressLoading] = useState({});
-  const [radius, setRadius] = useState(10000); // default 10km
-  const [debouncedRadius, setDebouncedRadius] = useState(radius);
-  const debounceTimeout = useRef();
+  const [serviceCenters, setServiceCenters] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [preferredCenter, setPreferredCenter] = useState(null)
+  const [addressCache, setAddressCache] = useState({})
+  const [addressLoading, setAddressLoading] = useState({})
   const [manualLocation, setManualLocation] = useState(() => {
-    const saved = localStorage.getItem('manualLocation');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [hasPickedLocation, setHasPickedLocation] = useState(() => !!localStorage.getItem('manualLocation'));
-  const activeLocation = hasPickedLocation ? manualLocation : null;
-  const [vehicles, setVehicles] = useState([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
-  const showSnackbar = useSnackbar();
-  const [selectedServiceTag, setSelectedServiceTag] = useState('All');
-  const [showCenters, setShowCenters] = useState(false);
+    const saved = localStorage.getItem('manualLocation')
+    return saved ? JSON.parse(saved) : null
+  })
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const hasPickedLocation = !!manualLocation
+  const activeLocation = manualLocation
+  const [vehicles, setVehicles] = useState([])
+  const showSnackbar = useSnackbar()
+  const [showCenters, setShowCenters] = useState(false)
 
-  // Helper function to calculate distance from user location
-  const calculateDistance = (center) => {
-    if (!activeLocation) return Infinity;
-    const R = 6371; 
-    const lat1 = activeLocation.lat * Math.PI / 180;
-    const lat2 = center.lat * Math.PI / 180;
-    const deltaLat = (center.lat - activeLocation.lat) * Math.PI / 180;
-    const deltaLon = (center.lon - activeLocation.lon) * Math.PI / 180;
-    
-    const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
-              Math.cos(lat1) * Math.cos(lat2) *
-              Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    return R * c;
-  };
+  const [filters, setFilters] = useState({
+    vehicleId: '',
+    serviceTag: 'All',
+    radius: 10000,
+  })
 
-  // Fetch vehicles for selector
+  const updateFilter = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }))
+    setShowCenters(false)
+  }
+
+    // Fetch all user vehicles on mount
   useEffect(() => {
     const fetchVehicles = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
       try {
-        const response = await axios.get(`${API_URL}/vehicles`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setVehicles(response.data);
-        if (response.data.length > 0) {
-          setSelectedVehicleId(response.data[0]._id);
-        }
-      } catch (err) {
-        setVehicles([]);
-      }
-    };
-    fetchVehicles();
-  }, []);
+        const response = await axios.get(`${API_URL}/vehicles`)
+        const fetchedVehicles = response.data || []
+        setVehicles(fetchedVehicles)
 
-  // Fetch preferred center for selected vehicle
+        if (fetchedVehicles.length > 0) {
+          setFilters((prev) => ({ ...prev, vehicleId: prev.vehicleId || fetchedVehicles[0]._id }))
+        }
+      } catch {
+        setVehicles([])
+      }
+    }
+    fetchVehicles()
+  }, [])
+
+    // Fetch preferred service center for the selected vehicle
   useEffect(() => {
-    if (!selectedVehicleId) {
-      setPreferredCenter(null);
-      return;
+    if (!filters.vehicleId) {
+      setPreferredCenter(null)
+      return
     }
     const fetchPreferred = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
       try {
-        const response = await axios.get(`${API_URL}/vehicles/${selectedVehicleId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setPreferredCenter(response.data.preferredServiceCenter || null);
-      } catch (err) {
-        setPreferredCenter(null);
+        const preferredRes = await axios.get(`${API_URL}/vehicles/${filters.vehicleId}`)
+        setPreferredCenter(preferredRes.data.preferredServiceCenter || null)
+      } catch {
+        setPreferredCenter(null)
       }
-    };
-    fetchPreferred();
-  }, [selectedVehicleId]);
+    }
+    fetchPreferred()
+  }, [filters.vehicleId])
 
-  // Wait before updating radius
+  // Fetch service centers from Overpass API when location/filters/showCenters changes
   useEffect(() => {
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    debounceTimeout.current = setTimeout(() => {
-      setDebouncedRadius(radius);
-    }, 1000);
-    return () => clearTimeout(debounceTimeout.current);
-  }, [radius]);
+    if (!activeLocation || !filters.radius || !showCenters) return
+    setLoading(true)
+    setError('')
 
-  // Get centers only if location, radius, and showCenters are set
-  useEffect(() => {
-    if (!activeLocation || !debouncedRadius || !showCenters) return;
-    let normalizedLat = activeLocation.lat;
-    let normalizedLon = activeLocation.lon;
-    while (normalizedLon > 180) normalizedLon -= 360;
-    while (normalizedLon < -180) normalizedLon += 360;
-    if (normalizedLat > 90) normalizedLat = 90;
-    if (normalizedLat < -90) normalizedLat = -90;
-    setLoading(true);
     const fetchCenters = async () => {
       try {
-        const query = buildOverpassQuery(null, null, { lat: normalizedLat, lon: normalizedLon }, debouncedRadius, selectedServiceTag);
-        const overpassUrl = 'https://overpass-api.de/api/interpreter';
+        const query = buildOverpassQuery(activeLocation, filters.radius, filters.serviceTag)
+        const overpassUrl = 'https://overpass-api.de/api/interpreter'
         const response = await fetch(overpassUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain' },
           body: query,
-        });
+        })
+
         if (!response.ok) {
-          const errorText = await response.text();
-          setError(`Overpass API error: ${response.status} - ${errorText}`);
-          setLoading(false);
-          return;
+          throw new Error(`Overpass API error: ${response.status} - ${await response.text()}`)
         }
-        const data = await response.json();
+        const data = await response.json()
         if (data.remark || data.error) {
-          setError(`Overpass error: ${data.remark || data.error}`);
-          setLoading(false);
-          return;
+          throw new Error(`Overpass error: ${data.remark || data.error}`)
         }
         if (!data.elements || data.elements.length === 0) {
-          setServiceCenters([]);
-          setLoading(false);
-          return;
+          setServiceCenters([])
+          return
         }
+
         const centers = data.elements
-          .filter(el => (el.lat || el.center?.lat) && (el.lon || el.center?.lon))
+          .filter((el) => (el.lat || el.center?.lat) && (el.lon || el.center?.lon))
           .map((el) => {
-          const lat = el.lat || el.center?.lat;
-          const lon = el.lon || el.center?.lon;
-          return {
-            id: `${el.type}-${el.id}`,
-            name: el.tags?.name || 'Car Repair Shop',
-            lat,
-            lon,
-            opening_hours: el.tags?.opening_hours,
-            phone: el.tags?.phone,
-            website: el.tags?.website,
-          };
-        });
-        setServiceCenters(centers);
+            const lat = el.lat || el.center?.lat
+            const lon = el.lon || el.center?.lon
+            return {
+              id: `${el.type}-${el.id}`,
+              name: el.tags?.name || 'Car Repair Shop',
+              lat,
+              lon,
+              opening_hours: el.tags?.opening_hours,
+              phone: el.tags?.phone,
+              website: el.tags?.website,
+            }
+          })
+        setServiceCenters(centers)
       } catch (err) {
-        setError(`Failed to fetch nearby service centers: ${err.message}`);
+        setError(err.message)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false);
-    };
-    fetchCenters();
-  }, [debouncedRadius, activeLocation, showCenters, vehicles, selectedVehicleId, selectedServiceTag]);
-
-  // Save location to localStorage when it changes
-  useEffect(() => {
-    if (manualLocation) {
-      localStorage.setItem('manualLocation', JSON.stringify(manualLocation));
-      setHasPickedLocation(true);
-    } else {
-      localStorage.removeItem('manualLocation');
-      setHasPickedLocation(false);
     }
-  }, [manualLocation]);
+    fetchCenters()
+  }, [filters, activeLocation, showCenters])
 
-  // Reset showCenters when filters change
-  useEffect(() => {
-    setShowCenters(false);
-  }, [manualLocation, selectedVehicleId, selectedServiceTag, radius]);
+    // Save manual location to state and local storage
+  const handleSetManualLocation = (loc) => {
+    setManualLocation(loc)
+    localStorage.setItem('manualLocation', JSON.stringify(loc))
+    setShowCenters(false)
+  }
 
-  // Fetch address for a center using Nominatim
-  const fetchAddressForCenter = async (center) => {
-    setAddressLoading((prev) => ({ ...prev, [center.id]: true }));
-    try {
-      const url = getNominatimUrl(center.lat, center.lon);
-      const response = await axios.get(url);
-      const address = response.data.display_name || `${center.lat}, ${center.lon}`;
-      setAddressCache((prev) => ({ ...prev, [center.id]: address }));
-    } catch (err) {
-      setAddressCache((prev) => ({ ...prev, [center.id]: `${center.lat}, ${center.lon}` }));
-    } finally {
-      setAddressLoading((prev) => ({ ...prev, [center.id]: false }));
-    }
-  };
+    // Fetches address for a service center using Nominatim reverse geocoding
+  const fetchAddressForCenter = useCallback(
+    async (center) => {
+      if (addressCache[center.id] || addressLoading[center.id]) return
+      setAddressLoading((prev) => ({ ...prev, [center.id]: true }))
+      try {
+        const url = getNominatimUrl(center.lat, center.lon)
+        const response = await axios.get(url)
+        const address = response.data.display_name || `${center.lat}, ${center.lon}`
+        setAddressCache((prev) => ({ ...prev, [center.id]: address }))
+      } catch {
+        setAddressCache((prev) => ({ ...prev, [center.id]: `${center.lat}, ${center.lon}` }))
+      } finally {
+        setAddressLoading((prev) => ({ ...prev, [center.id]: false }))
+      }
+    },
+    [addressCache, addressLoading]
+  )
 
-  // Open Google Maps directions for the center
+    // Opens Google Maps for directions
   const handleGetDirections = (center) => {
-    const address = addressCache[center.id] || `${center.lat},${center.lon}`;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
-    window.open(url, '_blank');
-  };
+    const address = addressCache[center.id] || `${center.lat},${center.lon}`
+    window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`,
+      '_blank'
+    )
+  }
 
-  // Mark a center as preferred for the selected vehicle
+    // Sets or unsets a service center as preferred for the selected vehicle
   const handleMarkAsPreferred = async (center) => {
-    if (!selectedVehicleId) return;
-    const isAlreadyPreferred = center && center.isVirtual ? true : isPreferred(center);
+    if (!filters.vehicleId) return
+    const isAlreadyPreferred = isPreferred(center)
     try {
-      const token = localStorage.getItem('token');
       if (isAlreadyPreferred) {
-        // Unset preferred center
-        setPreferredCenter(null); 
         await axios.post(`${API_URL}/vehicles/set-preferred-center`, {
-          vehicleId: selectedVehicleId,
+          vehicleId: filters.vehicleId,
           name: '',
           address: '',
-          placeId: ''
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        showSnackbar('Preferred center removed!', 'info');
+        })
+        setPreferredCenter(null)
+        showSnackbar('Preferred center removed!', 'info')
       } else {
-        // Set as preferred center
+        const address = addressCache[center.id] || `${center.lat}, ${center.lon}`
         await axios.post(`${API_URL}/vehicles/set-preferred-center`, {
-          vehicleId: selectedVehicleId,
+          vehicleId: filters.vehicleId,
           name: center.name,
-          address: addressCache[center.id] || `${center.lat}, ${center.lon}`
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setPreferredCenter({ name: center.name, address: addressCache[center.id] || `${center.lat}, ${center.lon}` });
-        showSnackbar('Preferred center updated!', 'success');
+          address: address,
+        })
+        setPreferredCenter({ name: center.name, address: address })
+        showSnackbar('Preferred center updated!', 'success')
       }
     } catch (err) {
-      showSnackbar('Failed to update preferred center', 'error');
+      showSnackbar('Failed to update preferred center', 'error')
     }
-  };
+  }
 
-  // Check if this center is preferred
+    // Checks if a center is the preferred one
   const isPreferred = (center) => {
-    if (!preferredCenter) return false;
-    if (center && center.isVirtual) return true;
-    const address = addressCache[center.id] || `${center.lat}, ${center.lon}`;
-    return (
-      preferredCenter.name === center.name &&
-      preferredCenter.address === address
-    );
-  };
+    if (!preferredCenter) return false
+    const address = addressCache[center.id] || `${center.lat}, ${center.lon}`
+    return preferredCenter.name === center.name && preferredCenter.address === address
+  }
 
-  // Sort service centers so preferred is at the top
+    // Sorts centers to show the preferred one first
   const sortedCenters = useMemo(() => {
-    if (!preferredCenter) return serviceCenters;
-    const addressOf = (center) => addressCache[center.id] || `${center.lat}, ${center.lon}`;
-    const isPreferredMatch = (center) => {
-      if (!preferredCenter) return false;
-      if (preferredCenter.address && addressOf(center)) {
-        return preferredCenter.name === center.name && preferredCenter.address === addressOf(center);
-      }
-      return preferredCenter.name === center.name;
-    };
-    const preferredInList = serviceCenters.find(isPreferredMatch);
+    if (!preferredCenter) return serviceCenters
+
+    const centersWithFlags = serviceCenters.map((center) => {
+      const currentAddress = addressCache[center.id] || `${center.lat}, ${center.lon}`
+      const isPreferredMatch =
+        preferredCenter.name === center.name && preferredCenter.address === currentAddress
+      return { ...center, isPreferred: isPreferredMatch }
+    })
+
+    const preferredInList = centersWithFlags.find((center) => center.isPreferred)
+
     if (preferredInList) {
-      // Remove duplicate center from the list
-      const others = serviceCenters.filter(center => !isPreferredMatch(center));
-      return [preferredInList, ...others];
-    } else if (preferredCenter) {
-      // Show virtual card if preferredCenter exists
+      const others = centersWithFlags.filter((center) => !center.isPreferred)
+      return [preferredInList, ...others]
+    } else {
       const preferredCard = {
         id: 'virtual-preferred',
         name: preferredCenter.name,
         lat: preferredCenter.lat,
         lon: preferredCenter.lon,
-        opening_hours: preferredCenter.opening_hours,
-        phone: preferredCenter.phone,
-        website: preferredCenter.website,
         address: preferredCenter.address,
-        isVirtual: true
-      };
-      return [preferredCard, ...serviceCenters];
-    } else {
-      return serviceCenters;
+        isPreferred: true,
+      }
+      return [preferredCard, ...centersWithFlags]
     }
-  }, [serviceCenters, preferredCenter, addressCache]);
+  }, [serviceCenters, preferredCenter, addressCache])
 
-  // Automatically fetch address for the first 8 centers and the preferred one
+    // Fetch addresses for the top 8 visible centers
   useEffect(() => {
-    const centersToFetch = [];
-    if (sortedCenters.length > 0) {
-      const preferred = sortedCenters[0];
-      if (preferred && !addressCache[preferred.id] && !addressLoading[preferred.id]) {
-        centersToFetch.push(preferred);
-      }
-    }
-    sortedCenters.slice(0, 8).forEach(center => {
-      if (center && !addressCache[center.id] && !addressLoading[center.id]) {
-        centersToFetch.push(center);
-      }
-    });
-    centersToFetch.forEach(center => {
-      if (
-        typeof center.lat === 'number' &&
-        !isNaN(center.lat) &&
-        typeof center.lon === 'number' &&
-        !isNaN(center.lon)
-      ) {
-        fetchAddressForCenter(center);
-      }
-    });
-  }, [sortedCenters, addressCache, addressLoading]);
-
-  // Mark centers with address load error
-  useEffect(() => {
-    // Mark as failed if loading stopped but no address found
-    sortedCenters.slice(0, 8).forEach(center => {
+    sortedCenters.slice(0, 8).forEach((center) => {
       if (
         center &&
-        !addressCache[center.id] &&
-        !addressLoading[center.id] &&
-        !center.addressFailed &&
-        center._triedLoadAddress
+        typeof center.lat === 'number' &&
+        typeof center.lon === 'number' &&
+        !isNaN(center.lat) &&
+        !isNaN(center.lon)
       ) {
-        center.addressFailed = true;
+        fetchAddressForCenter(center)
       }
-    });
-  }, [sortedCenters, addressCache, addressLoading]);
+    })
+  }, [sortedCenters, fetchAddressForCenter])
 
-  // Mark that address was tried to load
-  const originalFetchAddressForCenter = fetchAddressForCenter;
-  function fetchAddressForCenterWithFlag(center) {
-    center._triedLoadAddress = true;
-    return originalFetchAddressForCenter(center);
-  }
-
-    return (
+  return (
     <>
       <ManualLocationPicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        onSave={loc => {
-          setManualLocation(loc);
-          setShowCenters(true);
-        }}
+        onSave={handleSetManualLocation}
       />
-      {!hasPickedLocation ? (
-      <Container maxWidth="lg" sx={{ mt: 1, mb: 4 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 1, mt: 0 }}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase', mb: 1 }}>
+      <Container maxWidth="lg" sx={{ mt: { xs: 1, sm: 1 }, mb: 4, px: { xs: 1, sm: 2 } }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            mb: { xs: 2, sm: 3 },
+            mt: 0,
+          }}
+        >
+          <Typography
+            variant="h5"
+            component="h1"
+            sx={{
+              fontWeight: 'bold',
+              textAlign: 'center',
+              textTransform: 'uppercase',
+              mb: { xs: 2, sm: 3 },
+              fontSize: { xs: '1.25rem', sm: '1.5rem' },
+            }}
+          >
             Nearby Service Centers
           </Typography>
         </Box>
-        <Typography variant="h5" align="center" sx={{ mb: 3 }}>
-          Please pick your location to find nearby service centers
-        </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Button variant="contained" onClick={() => setPickerOpen(true)}>
-            Pick My Location
-          </Button>
-        </Box>
-      </Container>
-      ) : !showCenters ? (
-      <Container maxWidth="lg" sx={{ mt: 1, mb: 4 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 1, mt: 0 }}>
-          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase', mb: 1 }}>
-            Nearby Service Centers
+
+        {!hasPickedLocation ? (
+          <>
+            <Typography
+              variant="h5"
+              align="center"
+              sx={{
+                mb: { xs: 2, sm: 3 },
+                fontSize: { xs: '1.1rem', sm: '1.5rem' },
+                px: { xs: 1, sm: 0 },
+              }}
+            >
+              Please pick your location to find nearby service centers
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => setPickerOpen(true)}
+                sx={{
+                  minHeight: { xs: 48, sm: 36 },
+                  fontSize: { xs: '0.875rem', sm: '1rem' },
+                  px: { xs: 3, sm: 2 },
+                }}
+              >
+                Pick My Location
+              </Button>
+            </Box>
+          </>
+        ) : loading && showCenters ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+            <CircularProgress />
+          </Box>
+        ) : error && showCenters ? (
+          <Typography
+            color="error"
+            align="center"
+            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+          >
+            {error}
           </Typography>
-        </Box>
-        {hasPickedLocation && (
-          <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-            <Grid container alignItems="center" spacing={2}>
-              <Grid item xs={12} md={9}>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item>
-                    <SelectField
-                      label="Select Vehicle"
-                      value={selectedVehicleId}
-                      onChange={e => setSelectedVehicleId(e.target.value)}
-                      options={vehicles.map(vehicle => ({ value: vehicle._id, label: `${vehicle.vehicleName} (${vehicle.registrationNumber})` }))}
-                      size="small"
-                      sx={{ minWidth: 240 }}
-                    />
-                  </Grid>
-                  <Grid item>
-                    <SelectField
-                      label="Service Type"
-                      value={selectedServiceTag}
-                      onChange={e => setSelectedServiceTag(e.target.value)}
-                      options={[{ value: 'All', label: 'All' }, ...availableTags.map(tag => ({ value: tag, label: tag }))]}
-                      size="small"
-                      sx={{ minWidth: 240 }}
-                    />
-                  </Grid>
-                  <Grid item>
-                    <SelectField
-                      label="Search Radius"
-                      value={radius}
-                      onChange={e => setRadius(Number(e.target.value))}
-                      options={[
-                        { value: 10000, label: '10 km' },
-                        { value: 25000, label: '25 km' },
-                        { value: 50000, label: '50 km' },
-                        { value: 100000, label: '100 km' },
-                      ]}
-                      size="small"
-                      sx={{ minWidth: 240 }}
-                    />
-                  </Grid>
-                </Grid>
-              </Grid>
-              <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                <Button variant="contained" color="inherit" onClick={() => setPickerOpen(true)} sx={{ minWidth: 170, fontWeight: 600 }}>
-                  <span role="img" aria-label="location">📍</span> &nbsp;SET MY LOCATION
-                </Button>
-              </Grid>
-            </Grid>
-            <Grid container>
-              <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                <Button variant="contained" color="inherit" onClick={() => setShowCenters(true)} sx={{ minWidth: 250, fontWeight: 600 }}>
-                  SHOW SERVICE CENTERS
-                </Button>
-              </Grid>
-            </Grid>
-          </Paper>
-        )}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 2, height: '500px' }}>
-              <MapSection
-                activeLocation={activeLocation}
-                serviceCenters={[]}
-                showCenters={false}
-              />
-            </Paper>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 2, maxHeight: '500px', overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography variant="subtitle1" color="text.secondary" align="center">
-                Pick filters and click 'Show Service Centers' to view nearby centers on the map and in the list.
-              </Typography>
-            </Paper>
-          </Grid>
-        </Grid>
-      </Container>
-      ) : loading ? (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-          <CircularProgress />
-        </Box>
-      </Container>
-      ) : error ? (
-      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-          <AppAlert severity="error">{error}</AppAlert>
-      </Container>
-      ) : (
-    <Container maxWidth="lg" sx={{ mt: 1, mb: 4 }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 1, mt: 0 }}>
-        <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase', mb: 1 }}>
-          Nearby Service Centers
-        </Typography>
-      </Box>
-      {hasPickedLocation && (
-        <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-          <Grid container alignItems="center" spacing={2}>
-            <Grid item xs={12} md={9}>
-              <Grid container spacing={2} alignItems="center">
-                <Grid item>
+        ) : (
+          <>
+            <Paper elevation={3} sx={{ p: { xs: 2, sm: 3 }, mb: { xs: 2, sm: 3 } }}>
+              <Grid container spacing={{ xs: 2, sm: 2 }} alignItems="center">
+                <Grid item xs={12} sm={6} md={3}>
                   <SelectField
                     label="Select Vehicle"
-                    value={selectedVehicleId}
-                    onChange={e => setSelectedVehicleId(e.target.value)}
-                    options={vehicles.map(vehicle => ({ value: vehicle._id, label: `${vehicle.vehicleName} (${vehicle.registrationNumber})` }))}
+                    value={filters.vehicleId}
+                    onChange={(e) => updateFilter('vehicleId', e.target.value)}
+                    options={vehicles.map((vehicle) => ({
+                      value: vehicle._id,
+                      label: `${vehicle.vehicleName} (${vehicle.registrationNumber})`,
+                    }))}
                     size="small"
-                    sx={{ minWidth: 240 }}
+                    fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { minHeight: { xs: 48, sm: 40 } } }}
                   />
                 </Grid>
-                <Grid item>
+                <Grid item xs={12} sm={6} md={3}>
                   <SelectField
                     label="Service Type"
-                    value={selectedServiceTag}
-                    onChange={e => setSelectedServiceTag(e.target.value)}
-                    options={[{ value: 'All', label: 'All' }, ...availableTags.map(tag => ({ value: tag, label: tag }))]}
+                    value={filters.serviceTag}
+                    onChange={(e) => updateFilter('serviceTag', e.target.value)}
+                    options={[
+                      { value: 'All', label: 'All' },
+                      ...availableTags.map((tag) => ({ value: tag, label: tag })),
+                    ]}
                     size="small"
-                    sx={{ minWidth: 240 }}
+                    fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { minHeight: { xs: 48, sm: 40 } } }}
                   />
                 </Grid>
-                <Grid item>
+                <Grid item xs={12} sm={6} md={3}>
                   <SelectField
                     label="Search Radius"
-                    value={radius}
-                    onChange={e => setRadius(Number(e.target.value))}
+                    value={filters.radius}
+                    onChange={(e) => updateFilter('radius', Number(e.target.value))}
                     options={[
                       { value: 10000, label: '10 km' },
                       { value: 25000, label: '25 km' },
@@ -548,71 +384,147 @@ const NearbyCenters = () => {
                       { value: 100000, label: '100 km' },
                     ]}
                     size="small"
-                    sx={{ minWidth: 240 }}
+                    fullWidth
+                    sx={{ '& .MuiOutlinedInput-root': { minHeight: { xs: 48, sm: 40 } }}}
                   />
                 </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Button
+                    variant="contained"
+                    color="inherit"
+                    onClick={() => setPickerOpen(true)}
+                    sx={{
+                      fontWeight: 600,
+                      minHeight: { xs: 48, sm: 40 },
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                    }}
+                    fullWidth
+                  >
+                    📍 SET MY LOCATION
+                  </Button>
+                </Grid>
+              </Grid>
+              <Grid container sx={{ mt: { xs: 1, sm: 2 } }}>
+                <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="contained"
+                    color="inherit"
+                    onClick={() => setShowCenters(true)}
+                    sx={{
+                      minWidth: { xs: '100%', sm: 250 },
+                      fontWeight: 600,
+                      minHeight: { xs: 48, sm: 40 },
+                      fontSize: { xs: '0.875rem', sm: '1rem' },
+                    }}
+                  >
+                    SHOW SERVICE CENTERS
+                  </Button>
+                </Grid>
+              </Grid>
+            </Paper>
+
+            {filters.vehicleId && preferredCenter && (
+              <Box sx={{ mb: { xs: 2, sm: 2 } }}>
+                <Box
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    borderRadius: 1,
+                    bgcolor: 'info.light',
+                    color: 'info.contrastText',
+                  }}
+                >
+                  <Typography
+                    sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, lineHeight: 1.4 }}
+                  >
+                    Preferred Center for this Vehicle: <b>{preferredCenter.name}</b>
+                  </Typography>
+                  <Typography
+                    sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, mt: 0.5, lineHeight: 1.3 }}
+                  >
+                    {preferredCenter.address}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+
+            <Grid container spacing={{ xs: 2, sm: 3 }}>
+              <Grid item xs={12} md={8}>
+                <Paper
+                  sx={{ p: { xs: 1.5, sm: 2 }, height: { xs: '300px', sm: '400px', md: '500px' } }}
+                >
+                  <MapSection
+                    activeLocation={activeLocation}
+                    serviceCenters={showCenters ? serviceCenters : []}
+                    showCenters={showCenters}
+                  />
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Paper
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    maxHeight: { xs: '400px', sm: '400px', md: '500px' },
+                    height: { xs: 'auto', md: '500px' },
+                    overflow: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: showCenters ? 'flex-start' : 'center',
+                    alignItems: showCenters ? 'stretch' : 'center',
+                  }}
+                >
+                  {!showCenters ? (
+                    <Typography
+                      variant="subtitle1"
+                      color="text.secondary"
+                      align="center"
+                      sx={{ fontSize: { xs: '0.875rem', sm: '1rem' }, px: { xs: 1, sm: 0 }, lineHeight: 1.4 }}
+                    >
+                      Pick filters and click 'Show Service Centers' to view nearby centers on the
+                      map and in the list.
+                    </Typography>
+                  ) : (
+                    <>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 400,
+                          textAlign: 'center',
+                          mb: 0.5,
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                        }}
+                      >
+                        Showing the nearest ones
+                      </Typography>
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          mb: { xs: 1.5, sm: 2 },
+                          fontSize: { xs: '1rem', sm: '1.25rem' },
+                        }}
+                      >
+                        🛠️ Service Centers ({sortedCenters.length})
+                      </Typography>
+                      <ServiceCenterList
+                        sortedCenters={sortedCenters}
+                        addressCache={addressCache}
+                        addressLoading={addressLoading}
+                        onLoadAddress={fetchAddressForCenter}
+                        onGetDirections={handleGetDirections}
+                        onMarkAsPreferred={handleMarkAsPreferred}
+                        selectedVehicleId={filters.vehicleId}
+                      />
+                    </>
+                  )}
+                </Paper>
               </Grid>
             </Grid>
-            <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-              <Button variant="contained" color="inherit" onClick={() => setPickerOpen(true)} sx={{ minWidth: 170, fontWeight: 600 }}>
-                <span role="img" aria-label="location">📍</span> &nbsp;SET MY LOCATION
-              </Button>
-            </Grid>
-          </Grid>
-          <Grid container>
-            <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-              <Button variant="contained" color="inherit" onClick={() => setShowCenters(true)} sx={{ minWidth: 250, fontWeight: 600 }}>
-                SHOW SERVICE CENTERS
-              </Button>
-            </Grid>
-          </Grid>
-        </Paper>
-      )}
-      {/* Preferred Center Summary */}
-      {selectedVehicleId && preferredCenter && (
-        <Box sx={{ mb: 2 }}>
-              <AppAlert severity="info" icon={<Favorite color="primary" />}>
-            Preferred Center for this Vehicle: <b>{preferredCenter.name}</b>
-            <br />
-            <span style={{ fontSize: 13 }}>{preferredCenter.address}</span>
-              </AppAlert>
-        </Box>
-      )}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: '500px' }}>
-            <MapSection
-              activeLocation={activeLocation}
-              serviceCenters={serviceCenters}
-              showCenters={showCenters}
-            />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, maxHeight: '500px', overflow: 'auto', height: '100%' }}>
-            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 400, textAlign: 'center', mb: 0.5 }}>
-              Showing the nearest ones
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', textAlign: 'center', mb: 2 }}>
-              🛠️ Service Centers ({sortedCenters.length})
-            </Typography>
-            <ServiceCenterList
-              sortedCenters={sortedCenters}
-              preferredCenter={preferredCenter}
-              addressCache={addressCache}
-              addressLoading={addressLoading}
-              onLoadAddress={fetchAddressForCenter}
-              onGetDirections={handleGetDirections}
-              onMarkAsPreferred={handleMarkAsPreferred}
-              selectedVehicleId={selectedVehicleId}
-            />
-          </Paper>
-        </Grid>
-      </Grid>
-    </Container>
-      )}
+          </>
+        )}
+      </Container>
     </>
-  );
-};
-
-export default NearbyCenters; 
+  )
+}
+export default NearbyCenters

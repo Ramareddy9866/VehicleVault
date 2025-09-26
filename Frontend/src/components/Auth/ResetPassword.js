@@ -1,70 +1,50 @@
 // Reset password form.
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Paper,
-} from '@mui/material';
-import axios from 'axios';
-import API_URL from '../../config';
-import AppAlert from '../common/AppAlert';
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { Container, Box, Typography, TextField, Button, Paper } from '@mui/material'
+import CircularProgress from '@mui/material/CircularProgress'
+import axios from 'axios'
+import API_URL from '../../config'
+import { useSnackbar } from '../../context/SnackbarContext'
 
 const ResetPassword = () => {
-  const { token } = useParams();
-  const navigate = useNavigate();
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { token } = useParams()
+  const navigate = useNavigate()
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const showSnackbar = useSnackbar()
+  const [loading, setLoading] = useState(false)
 
+  // Handle password reset submission
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
+    e.preventDefault()
     if (!password || !confirmPassword) {
-      setError('Please enter and confirm your new password.');
-      return;
+      showSnackbar('Please enter and confirm your new password.', 'error')
+      return
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
+      showSnackbar('Passwords do not match.', 'error')
+      return
     }
-    setLoading(true);
+    setLoading(true)
     try {
-      await axios.post(`${API_URL}/auth/reset-password/${token}`, { password });
-      setSuccess('Password reset successful! You can now log in.');
-      setTimeout(() => navigate('/login'), 2000);
+      await axios.post(`${API_URL}/auth/reset-password/${token}`, { password })
+      const msg = 'Password reset successful! You can now log in.'
+      showSnackbar(msg, 'success')
+      setTimeout(() => navigate('/login'), 2000)
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to reset password.');
+      const msg = err.response?.data?.message || 'Failed to reset password.'
+      showSnackbar(msg, 'error')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(''), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => setSuccess(''), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [success]);
+  }
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Container component="main" maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
-          marginTop: 8,
+          marginTop: { xs: 4, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -73,18 +53,19 @@ const ResetPassword = () => {
         <Paper
           elevation={3}
           sx={{
-            padding: 4,
+            p: { xs: 3, sm: 4 },
+            width: '100%',
+            maxWidth: { xs: '100%', sm: 400 },
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            width: '100%',
+            borderRadius: 2,
           }}
         >
-          <Typography component="h1" variant="h5">
+          <Typography component="h1" variant="h5" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
             Reset Password
           </Typography>
-          {error && <AppAlert severity="error">{error}</AppAlert>}
-          {success && <AppAlert severity="success">{success}</AppAlert>}
+
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
             <TextField
               margin="normal"
@@ -95,7 +76,7 @@ const ResetPassword = () => {
               type="password"
               id="password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
             />
             <TextField
               margin="normal"
@@ -106,22 +87,22 @@ const ResetPassword = () => {
               type="password"
               id="confirmPassword"
               value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
+              onChange={(e) => setConfirmPassword(e.target.value)}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ mt: 3, mb: 2, py: { xs: 1, sm: 1.5 } }}
               disabled={loading}
             >
-              {loading ? 'Resetting...' : 'Reset Password'}
+              {loading ? <CircularProgress size={20} color="inherit" /> : 'Reset Password'}
             </Button>
           </Box>
         </Paper>
       </Box>
     </Container>
-  );
-};
+  )
+}
 
-export default ResetPassword; 
+export default ResetPassword

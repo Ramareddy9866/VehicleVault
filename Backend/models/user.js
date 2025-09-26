@@ -1,49 +1,52 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose'
+import bcrypt from 'bcryptjs'
 
-const userSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema(
+  {
     name: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
     email: {
-        type: String,
-        required: true,
-        unique: true,
-        lowercase: true
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
     },
     password: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
     vehicles: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Vehicle'
-        }
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Vehicle',
+      },
     ],
     passwordResetToken: String,
-    passwordResetExpires: Date
-}, {
-    timestamps: true
-});
+    passwordResetExpires: Date,
+  },
+  {
+    timestamps: true,
+  }
+)
 
-userSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) return next();
-    
-    try {
-        const salt = await bcrypt.genSalt(10);
-        this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (error) {
-        next(error);
-    }
-});
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next()
 
-userSchema.methods.comparePassword = async function(candidatePassword) {
-    return bcrypt.compare(candidatePassword, this.password);
-};
+  try {
+    const salt = await bcrypt.genSalt(10)
+    this.password = await bcrypt.hash(this.password, salt)
+    next()
+  } catch (error) {
+    next(error)
+  }
+})
 
-const User = mongoose.model('User', userSchema);
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password)
+}
 
-export default User;
+const User = mongoose.model('User', userSchema)
+
+export default User

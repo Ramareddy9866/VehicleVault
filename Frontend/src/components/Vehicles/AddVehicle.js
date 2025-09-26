@@ -1,70 +1,46 @@
 // Add a new vehicle.
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import {
-  Container,
-  Paper,
-  Typography,
-  Grid,
-  TextField,
-  Button,
-  Box,
-} from '@mui/material';
-import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled';
-import { useSnackbar } from '../../context/SnackbarContext';
-import API_URL from '../../config';
-import AppAlert from '../common/AppAlert';
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import axios from 'axios'
+import { Container, Paper, Typography, Grid, TextField, Button, Box } from '@mui/material'
+import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled'
+import API_URL from '../../config'
+import { useSnackbar } from '../../context/SnackbarContext'
 
 const AddVehicle = () => {
   const [formData, setFormData] = useState({
     vehicleName: '',
     registrationNumber: '',
     modelYear: '',
-  });
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const showSnackbar = useSnackbar();
+  })
 
-  const handleChange = e => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const showSnackbar = useSnackbar()
+  const navigate = useNavigate()
 
-  const handleDateChange = (date, field) => {
-    setFormData({ ...formData, [field]: date });
-  };
+  const handleChange = e => setFormData({ ...formData, [e.target.name]: e.target.value })
 
-  // Handle form submit
+    // Handler for form submission
   const handleSubmit = async e => {
-    e.preventDefault();
-    setError('');
-    // Only require vehicleName and registrationNumber
-    if (!formData.vehicleName || !formData.registrationNumber) {
-      setError('Please fill all required fields.');
-      return;
-    }
+    e.preventDefault()
     try {
-      await axios.post(`${API_URL}/vehicles`, formData);
-      showSnackbar('Vehicle added successfully!', 'success');
-      navigate('/vehicles');
+      await axios.post(`${API_URL}/vehicles`, formData)
+      navigate('/vehicles', { state: { vehicleAdded: true } })
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to add vehicle.');
+      const msg = err.response?.data?.message || 'Failed to add vehicle.'
+      showSnackbar(msg, 'error')
     }
-  };
-
-  const sharedFieldSx = {
-    minWidth: 180,
-    maxWidth: '220px',
-    '& .MuiOutlinedInput-root': {
-      minHeight: 40,
-    },
-  };
+  }
 
   return (
-    <Container maxWidth="sm">
-      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
+    <Container maxWidth="sm" sx={{ display: 'flex', justifyContent: 'center' }}>
+      <Paper
+        elevation={3}
+        sx={{ p: { xs: 2, sm: 4 }, mt: { xs: 2, sm: 4 }, width: '100%', maxWidth: 500 }}
+      >
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-          <DirectionsCarFilledIcon sx={{ fontSize: 32, color: 'primary.main', mr: 1 }} />
+          <DirectionsCarFilledIcon
+            sx={{ fontSize: { xs: 28, sm: 32 }, color: 'primary.main', mr: 1 }}
+          />
           <Typography
             variant="h5"
             component="h1"
@@ -72,16 +48,15 @@ const AddVehicle = () => {
               fontWeight: 'bold',
               textAlign: 'center',
               textTransform: 'uppercase',
+              fontSize: { xs: '1.25rem', sm: '1.5rem' },
             }}
           >
             Add Vehicle
           </Typography>
         </Box>
 
-        {error && <AppAlert severity="error">{error}</AppAlert>}
-
-        <Grid container spacing={1.5} component="form" onSubmit={handleSubmit}>
-          {/* Vehicle Name */}
+        <Grid container spacing={2} component="form" onSubmit={handleSubmit}>
+          {/* Vehicle Name Field */}
           <Grid item xs={12}>
             <TextField
               label="Vehicle Name"
@@ -91,11 +66,9 @@ const AddVehicle = () => {
               required
               fullWidth
               size="small"
-              sx={{ minWidth: 300, maxWidth: '100%', '& .MuiOutlinedInput-root': { minHeight: 40 } }}
             />
           </Grid>
-
-          {/* Registration Number */}
+          {/* Registration Number Field */}
           <Grid item xs={12}>
             <TextField
               label="Registration Number"
@@ -105,12 +78,10 @@ const AddVehicle = () => {
               required
               fullWidth
               size="small"
-              sx={{ minWidth: 300, maxWidth: '100%', '& .MuiOutlinedInput-root': { minHeight: 40 } }}
             />
           </Grid>
-
-          {/* Model Year */}
-          <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+          {/* Model Year Field */}
+          <Grid item xs={12} sm={6} md={5} sx={{ mx: 'auto' }}>
             <TextField
               label="Model Year"
               name="modelYear"
@@ -119,13 +90,15 @@ const AddVehicle = () => {
               onChange={handleChange}
               fullWidth
               size="small"
-              sx={sharedFieldSx}
             />
           </Grid>
-
-          {/* Buttons */}
-          <Grid item xs={12} sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 1.5 }}>
-            <Button variant="outlined" onClick={() => navigate('/vehicles')} sx={{ minWidth: 100 }}>
+          {/* Action Buttons */}
+          <Grid
+            item
+            xs={12}
+            sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: { xs: 2, sm: 3 } }}
+          >
+            <Button variant="outlined" onClick={() => navigate('/vehicles')} sx={{ minWidth: 100 }} >
               Cancel
             </Button>
             <Button type="submit" variant="contained" sx={{ minWidth: 120 }}>
@@ -135,7 +108,7 @@ const AddVehicle = () => {
         </Grid>
       </Paper>
     </Container>
-  );
-};
+  )
+}
 
 export default AddVehicle;

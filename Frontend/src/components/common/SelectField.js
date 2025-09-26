@@ -1,6 +1,4 @@
-// Dropdown select field.
-import React from 'react';
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material'
 
 const SelectField = ({
   label,
@@ -15,12 +13,7 @@ const SelectField = ({
 }) => (
   <FormControl fullWidth size={size} required={required} sx={sx}>
     <InputLabel>{label}</InputLabel>
-    <Select
-      label={label}
-      value={value}
-      onChange={onChange}
-      {...selectProps}
-    >
+    <Select label={label} value={value} onChange={onChange} {...selectProps}>
       {options.map((option, idx) =>
         renderOption ? (
           renderOption(option, idx)
@@ -32,6 +25,6 @@ const SelectField = ({
       )}
     </Select>
   </FormControl>
-);
+)
 
-export default SelectField; 
+export default SelectField

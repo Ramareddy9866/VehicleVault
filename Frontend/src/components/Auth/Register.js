@@ -1,65 +1,56 @@
 // User registration form.
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import {
-  Container,
-  Box,
-  Typography,
-  TextField,
-  Button,
-  Link,
-  Paper,
-} from '@mui/material';
-import { useAuth } from '../../context/AuthContext';
-import AppAlert from '../common/AppAlert';
+import { useState } from 'react'
+import { useNavigate, Link as RouterLink } from 'react-router-dom'
+import { Container, Box, Typography, TextField, Button, Link, Paper } from '@mui/material'
+import CircularProgress from '@mui/material/CircularProgress'
+import { useAuth } from '../../context/AuthContext'
+import { useSnackbar } from '../../context/SnackbarContext'
 
 const Register = () => {
+  // Form state management
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-  });
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const { register } = useAuth();
+  })
+  const showSnackbar = useSnackbar()
+  const [loading, setLoading] = useState(false)
+  const navigate = useNavigate()
+  const { register } = useAuth()
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
-    });
-  };
-
+    })
+  }
+  // Registration submission with validation
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
+    e.preventDefault()
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
+      showSnackbar('Passwords do not match', 'error')
+      return
     }
 
     try {
-      await register(formData.name, formData.email, formData.password);
-      navigate('/login');
+      setLoading(true)
+      await register(formData.name, formData.email, formData.password)
+      navigate('/login')
+      showSnackbar('Registration successful! Please sign in.', 'success')
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      const msg = err.response?.data?.message || 'Registration failed. Please try again.'
+      showSnackbar(msg, 'error')
+    } finally {
+      setLoading(false)
     }
-  };
-
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(''), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
+  }
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Container component="main" maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
-          marginTop: 2,
+          marginTop: { xs: 4, sm: 8 },
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -68,17 +59,19 @@ const Register = () => {
         <Paper
           elevation={3}
           sx={{
-            padding: 4,
+            p: { xs: 3, sm: 4 },
+            width: '100%',
+            maxWidth: { xs: '100%', sm: 400 },
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            width: '100%',
+            borderRadius: 2,
           }}
         >
-          <Typography component="h1" variant="h5">
+          <Typography component="h1" variant="h5" sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
             Sign up
           </Typography>
-          {error && <AppAlert severity="error">{error}</AppAlert>}
+
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
             <TextField
               margin="normal"
@@ -130,20 +123,21 @@ const Register = () => {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
+              sx={{ mt: 3, mb: 2, py: { xs: 1, sm: 1.5 } }}
+              disabled={loading}
             >
-              Sign Up
+              {loading ? <CircularProgress size={20} color="inherit" /> : 'Sign Up'}
             </Button>
             <Box sx={{ textAlign: 'center' }}>
               <Link component={RouterLink} to="/login" variant="body2">
-                {"Already have an account? Sign In"}
+                {'Already have an account? Sign In'}
               </Link>
             </Box>
           </Box>
         </Paper>
       </Box>
     </Container>
-  );
-};
+  )
+}
 
-export default Register;
+export default Register

@@ -1,37 +1,28 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from '@mui/material';
+import React from 'react'
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from '@mui/material'
 
-// Listens to map clicks
+// Handles map clicks: selects location + centers/zooms
 const LocationSelector = ({ onSelect }) => {
   useMapEvents({
     click(e) {
-      onSelect({ lat: e.latlng.lat, lon: e.latlng.lng });
-    }
-  });
-  return null;
-};
+      const loc = { lat: e.latlng.lat, lon: e.latlng.lng }
+      onSelect(loc)
+    },
+  })
+  return null
+}
 
 const ManualLocationPicker = ({ open, onClose, onSave }) => {
-  const [selected, setSelected] = React.useState(null);
-  const mapRef = React.useRef();
+  const [selected, setSelected] = React.useState(null)
 
+  // Restore saved location when dialog opens
   React.useEffect(() => {
     if (open) {
-      // Restore previous location if saved
-      const saved = localStorage.getItem('manualLocation');
-      if (saved) {
-        const loc = JSON.parse(saved);
-        setSelected(loc);
-        // Center the map to saved location
-        if (mapRef.current) {
-          mapRef.current.setView([loc.lat, loc.lon], 13);
-        }
-      } else {
-        setSelected(null);
-      }
+      const saved = localStorage.getItem('manualLocation')
+      setSelected(saved ? JSON.parse(saved) : null)
     }
-  }, [open]);
+  }, [open])
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -45,7 +36,6 @@ const ManualLocationPicker = ({ open, onClose, onSave }) => {
             center={selected ? [selected.lat, selected.lon] : [20.5937, 78.9629]}
             zoom={selected ? 13 : 5}
             style={{ height: '100%' }}
-            whenCreated={mapInstance => { mapRef.current = mapInstance; }}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -59,9 +49,9 @@ const ManualLocationPicker = ({ open, onClose, onSave }) => {
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button
-          onClick={() => {
-            onSave(selected);
-            onClose();
+          onClick={() => { 
+            onSave(selected)
+            onClose()
           }}
           disabled={!selected}
           variant="contained"
@@ -70,7 +60,7 @@ const ManualLocationPicker = ({ open, onClose, onSave }) => {
         </Button>
       </DialogActions>
     </Dialog>
-  );
-};
+  )
+}
 
-export default ManualLocationPicker;
+export default ManualLocationPicker

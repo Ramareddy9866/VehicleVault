@@ -1,49 +1,38 @@
-import mongoose from 'mongoose';
+import mongoose from 'mongoose'
 
-const vehicleSchema = new mongoose.Schema({
+const vehicleSchema = new mongoose.Schema(
+  {
     userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
     },
     vehicleName: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
     registrationNumber: {
-        type: String,
-        required: true,
-        unique: true
+      type: String,
+      required: true,
+      unique: true,
     },
     modelYear: {
-        type: Number
+      type: Number,
     },
     lastReminderSentDate: {
-        type: Date
+      type: Date,
     },
-    serviceHistory: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'Service'
-        }
-    ],
     preferredServiceCenter: {
-        name: String,
-        address: String,
-        placeId: String
+      name: String,
+      address: String,
     },
-    serviceCenterHistory: [
-        {
-            name: String,
-            address: String,
-            placeId: String,
-            lastUsed: {
-                type: Date,
-                default: Date.now
-            }
-        }
-    ]
-}, { timestamps: true });
+  },
+  { timestamps: true }
+)
 
-const Vehicle = mongoose.model('Vehicle', vehicleSchema);
-export default Vehicle;
+// Index commonly queried fields
+vehicleSchema.index({ userId: 1 })
+vehicleSchema.index({ registrationNumber: 1 }, { unique: true })
+
+const Vehicle = mongoose.model('Vehicle', vehicleSchema)
+export default Vehicle

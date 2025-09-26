@@ -1,47 +1,58 @@
-import mongoose from 'mongoose';
+import mongoose from 'mongoose'
 
-const serviceSchema = new mongoose.Schema({
+const serviceSchema = new mongoose.Schema(
+  {
     vehicleId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Vehicle',
-        required: true
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Vehicle',
+      required: true,
     },
     serviceDate: {
-        type: Date,
-        required: true
+      type: Date,
+      required: true,
     },
     description: {
-        type: String,
-        required: true
+      type: String,
+      required: true,
     },
     cost: {
-        type: Number,
-        required: true
+      type: Number,
+      required: true,
     },
     mileage: {
-        type: Number
+      type: Number,
     },
     nextServiceDate: {
-        type: Date
+      type: Date,
     },
     serviceType: {
-        type: String,
-        enum: [
-            'Oil Change',
-            'Brake Service',
-            'Tire Rotation',
-            'Battery Replacement',
-            'Engine Diagnostics',
-            'General Maintenance',
-            'Others'
-        ],
-        required: true
+      type: String,
+      enum: [
+        'Oil Change',
+        'Brake Service',
+        'Tire Rotation',
+        'Battery Replacement',
+        'Engine Diagnostics',
+        'General Maintenance',
+        'Others',
+      ],
+      required: true,
     },
     serviceCenter: {
-        name: String,
-        address: String
-    }
-}, { timestamps: true });
+      name: {
+        type: String,
+        required: true,
+      },
+      address: {
+        type: String,
+        required: true,
+      },
+    },
+  },
+  { timestamps: true }
+)
 
-const Service = mongoose.model('Service', serviceSchema);
-export default Service;
+serviceSchema.index({ vehicleId: 1, serviceDate: -1 })
+
+const Service = mongoose.model('Service', serviceSchema)
+export default Service
